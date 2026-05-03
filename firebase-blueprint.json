@@ -1,0 +1,85 @@
+{
+  "entities": {
+    "Gate": {
+      "title": "Gate",
+      "description": "Information about a stadium entrance gate.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "crowdLevel": { "type": "string", "enum": ["Low", "Medium", "High", "Overcrowded"] },
+        "waitTime": { "type": "number", "description": "Estimated wait time in minutes" },
+        "lastUpdated": { "type": "string", "format": "date-time" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        }
+      },
+      "required": ["name", "crowdLevel", "waitTime", "lastUpdated"]
+    },
+    "UserReport": {
+      "title": "User Report",
+      "description": "A crowd report submitted by a fan.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "gateId": { "type": "string" },
+        "crowdLevel": { "type": "string", "enum": ["Low", "Medium", "High", "Overcrowded"] },
+        "comment": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "votes": { "type": "number" },
+        "voters": { "type": "array", "description": "UIDs of people who voted" }
+      },
+      "required": ["userId", "gateId", "crowdLevel", "timestamp"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Official update from stadium organizers.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "priority": { "type": "string", "enum": ["Normal", "High", "Urgent"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "authorId": { "type": "string" }
+      },
+      "required": ["title", "message", "priority", "timestamp"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User account information including roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["public", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "role"]
+    }
+  },
+  "firestore": {
+    "/gates/{gateId}": {
+      "schema": "Gate",
+      "description": "Collection of stadium gates."
+    },
+    "/reports/{reportId}": {
+      "schema": "UserReport",
+      "description": "Global collection of crowd reports."
+    },
+    "/announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Official announcements feed."
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles and roles."
+    }
+  }
+}

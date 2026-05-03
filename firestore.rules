@@ -1,0 +1,121 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'sanketkushwaha020@gmail.com' || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        )
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validations ---
+
+    function isValidGate(data) {
+      return data.keys().hasAll(['name', 'crowdLevel', 'waitTime', 'lastUpdated']) &&
+             data.keys().size() >= 4 && data.keys().size() <= 5 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.crowdLevel in ['Low', 'Medium', 'High', 'Overcrowded'] &&
+             data.waitTime is number && data.waitTime >= 0 &&
+             data.lastUpdated is string && data.lastUpdated.size() <= 100 &&
+             (!data.keys().hasAny(['location']) || (
+               data.location.lat is number && data.location.lng is number
+             ));
+    }
+
+    function isValidReport(data) {
+      return data.keys().hasAll(['userId', 'userName', 'gateId', 'crowdLevel', 'comment', 'imageUrl', 'timestamp', 'votes', 'voters']) &&
+             data.keys().size() == 9 &&
+             data.userId == request.auth.uid &&
+             data.userName is string && data.userName.size() <= 100 &&
+             isValidId(data.gateId) &&
+             data.crowdLevel in ['Low', 'Medium', 'High', 'Overcrowded'] &&
+             data.timestamp is string && data.timestamp.size() <= 100 &&
+             (data.comment == null || (data.comment is string && data.comment.size() <= 500)) &&
+             (data.imageUrl == null || (data.imageUrl is string && data.imageUrl.size() <= 300000)) &&
+             data.votes is number && data.voters is list;
+    }
+
+    function isValidAnnouncement(data) {
+      return data.keys().hasAll(['title', 'message', 'priority', 'timestamp', 'authorId']) &&
+             data.keys().size() == 5 &&
+             data.title is string && data.title.size() <= 200 &&
+             data.message is string && data.message.size() <= 2000 &&
+             data.priority in ['Normal', 'High', 'Urgent'] &&
+             data.timestamp is string && data.timestamp.size() <= 100 &&
+             data.authorId == request.auth.uid;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'role', 'displayName', 'createdAt', 'email']) &&
+             data.keys().size() == 5 &&
+             data.uid == request.auth.uid &&
+             data.role in ['public', 'admin'] &&
+             (data.displayName == null || (data.displayName is string && data.displayName.size() <= 100)) &&
+             data.createdAt is string && data.createdAt.size() <= 100 &&
+             data.email is string && data.email.size() <= 200;
+    }
+
+    // --- Collection Rules ---
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isAdmin() || isOwner(userId);
+    }
+
+    match /gates/{gateId} {
+      allow get: if isValidId(gateId);
+      allow list: if true;
+      allow write: if isAdmin() && isValidGate(incoming());
+    }
+
+    match /reports/{reportId} {
+      allow get: if isValidId(reportId);
+      allow list: if true;
+      allow create: if isVerified() && isValidReport(incoming()) && incoming().votes == 0 && incoming().voters.size() == 0;
+      allow update: if isVerified() && (
+        // Voting action
+        (incoming().diff(existing()).affectedKeys().hasOnly(['votes', 'voters']) && 
+         incoming().votes == existing().votes + 1 && 
+         !(request.auth.uid in existing().voters) && 
+         request.auth.uid in incoming().voters) ||
+        // Admin cleanup
+        isAdmin()
+      ) && isValidReport(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /announcements/{announcementId} {
+      allow get: if isValidId(announcementId);
+      allow list: if true;
+      allow write: if isAdmin() && isValidAnnouncement(incoming());
+    }
+  }
+}

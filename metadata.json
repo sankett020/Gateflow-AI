@@ -1,0 +1,14 @@
+{
+  "name": "Gateflow AI",
+  "description": "A real-time gate crowd insights and communication platform for stadium events, helping fans avoid traffic and organizers manage flow.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "Real-time updates",
+    "User authentication",
+    "Crowd reporting",
+    "Admin dashboard"
+  ]
+}
